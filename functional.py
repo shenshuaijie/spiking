@@ -14,7 +14,7 @@ def add_temporal_dimension(tensor: Tensor, time_step: int):
     return tensor
 
 
-def set_spiking_mode(model: nn.Module, spiking_neurons: type[nn.Module] | tuple[type[nn.Module]], time_step: int):
+def set_spiking_mode(model: nn.Module, spiking_neurons: type[nn.Module] | tuple[type[nn.Module]], time_step: int, input_type='static', reduction='none'):
     def spiking_forward_pre_hook(m: nn.Module, input: tuple[Tensor]):
         x = add_temporal_dimension(input[0], time_step)
         return x
@@ -35,13 +35,23 @@ def set_spiking_mode(model: nn.Module, spiking_neurons: type[nn.Module] | tuple[
         x = x.repeat(time_step, *[1]*(x.dim()-1))
         return x
 
-    def reduce_mean_hook(m: nn.Module, input: tuple[Tensor], output: Tensor):
+    def reduce_hook(m: nn.Module, input: tuple[Tensor], output: Tensor):
         output = add_temporal_dimension(output, time_step)
-        output = output.mean(0)
+        if reduction == 'mean':
+            output = output.mean(0)
+        elif reduction == 'sum':
+            output = output.sum(0)
+        elif reduction == 'none':
+            pass
+        else:
+            raise ValueError(
+                f'`reduction` must be one of `mean`, `sum` and `none`, but got {reduction}')
         return output
-
-    model.register_forward_pre_hook(repeat_input_hook)
-    model.register_forward_hook(reduce_mean_hook)
+    if input_type == 'static':
+        model.register_forward_pre_hook(repeat_input_hook)
+    elif input_type == 'dynamic':
+        pass
+    model.register_forward_hook(reduce_hook)
 
 
 def convert_spiking_neuron(module: nn.Module, activation: type[nn.Module] | tuple[type[nn.Module]], spiking_neuron: nn.Module):
