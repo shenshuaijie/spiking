@@ -51,6 +51,9 @@ def set_spiking_mode(model: nn.Module, spiking_neurons: type[nn.Module] | tuple[
         model.register_forward_pre_hook(repeat_input_hook)
     elif input_type == 'dynamic':
         pass
+    else:
+        raise ValueError(
+            f'`input_type` must be one of `static` and `static`, but got {input_type}')
     model.register_forward_hook(reduce_hook)
 
 
