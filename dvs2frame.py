@@ -54,6 +54,40 @@ def _dvs2frame(height: int,
     return frame
 
 
+def temporal_bilinear_interpolation(height: int,
+                                    width: int,
+                                    x_array: Attribute,
+                                    y_array: Attribute,
+                                    polaritys_array: Attribute,
+                                    timestamps: Attribute,
+                                    bins: int,
+                                    ):
+    """
+    Convert a DVS event stream to a frame with temporal bilinear interpolation.
+    Args:
+        height (int): Height of the frame.
+        width (int): Width of the frame.
+        x_array (Attribute): x coordinates of the events.
+        y_array (Attribute): y coordinates of the events.
+        polarity_array (Attribute): Polaritys of the events.
+        timestamps (Attribute): Timestamps of the events.
+        bins (int): Number of bins.
+    Returns:
+        np.array: The frame with shape `(bins, height, width)`.
+    """
+    start = np.min(timestamps)
+    end = np.max(timestamps)
+    normalized_timestamps = (bins-1)*(timestamps - start) / (end - start)
+    frame = np.zeros((bins, height, width))
+    right_indices = np.ceil(normalized_timestamps).astype(int)
+    right_indices = np.maximum(right_indices, 1)
+    np.add.at(frame, (right_indices, x_array, y_array),
+              polaritys_array*(1-right_indices+normalized_timestamps))
+    np.add.at(frame, (right_indices-1, x_array, y_array),
+              polaritys_array*(right_indices-normalized_timestamps))
+    return frame
+
+
 def sbt(event_stream: EventStream,
         height: int,
         width: int,
@@ -184,14 +218,18 @@ def stack_events(
 
 
 if __name__ == "__main__":
-    num_events = 1000000
-    h, w = 128, 64
+    num_events = 10
+    h, w = 1, 1
     event_stream = np.array([
-        np.random.randint(0, 1000000, size=num_events),
+        np.random.randint(0, 7, size=num_events),
         np.random.randint(0, h, size=num_events),
         np.random.randint(0, w, size=num_events),
         np.random.randint(0, 2, size=num_events) * 2 - 1
     ]).T
+
+    temporal_bilinear_interpolation(
+        h, w, event_stream[:, 1], event_stream[:, 2], event_stream[:, 3], event_stream[:, 0], 3)
+
     event_stream = [list(event) for event in event_stream]
     frames = stack_events(event_stream, h, w,
                           based_on='time', delta_T=50)

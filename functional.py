@@ -73,19 +73,21 @@ def convert_spiking_neuron(module: nn.Module, activation: type[nn.Module] | tupl
 if __name__ == "__main__":
     from torchvision.models.resnet import resnet18
     from spikingjelly.activation_based.neuron import LIFNode
+    from spikingjelly.activation_based.functional import reset_net
     import torch
 
-    # instance an ann model.
+    # instantiate an ann model.
     model = resnet18()
     # convert all activations to a specific spiking neuron.
     convert_spiking_neuron(model, nn.ReLU, LIFNode(step_mode='m'))
     # add hook functions which modify inputs or outputs of spiking neurons
-    # and also repeat input images `time_step` times and average the output membrane potential.
+    # and also repeat input images `time_step` times and the output membrane potential.
     set_spiking_mode(model, LIFNode, 4)
     # now, this model is a snn model.
     print(model)
     x = torch.randn(32, 3, 224, 224)
     # we can just feed inputs into model with no difference from ann.
+    reset_net(model)
     y = model(x)
     # and also the output of model has the same shape as ann output.
     print(y.shape)  # torch.Size([32, 1000])
